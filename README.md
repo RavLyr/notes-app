@@ -27,7 +27,7 @@ Aplikasi ini dilengkapi dengan serangkaian fitur yang lengkap untuk pengalaman p
 
 Proyek ini dibangun menggunakan tumpukan teknologi modern yang populer:
 
-* **Backend:** PHP 8.x, Laravel 10.x
+* **Backend:** PHP 8.x, Laravel 11.x
 * **Frontend:** Blade, Tailwind CSS, Alpine.js
 * **Database:** MySQL
 * **Server Development:** Laravel Valet (atau bisa dijalankan dengan `php artisan serve`)
