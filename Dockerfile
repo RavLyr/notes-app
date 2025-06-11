@@ -1,40 +1,41 @@
-FROM php:8.3-fpm-alpine
+FROM composer:2.7 as vendor
+WORKDIR /app
+COPY database/ database/
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-RUN apk update \
-    && apk add --no-cache \
-       bash \
-       build-base \
-       libpng-dev \
-       libjpeg-turbo-dev \
-       freetype-dev \
-       oniguruma-dev \
-       libxml2-dev \
-       libzip-dev \
-       zlib-dev \
-       zip \
-       unzip \
-       git \
-       curl \
-    && docker-php-ext-configure gd \
-         --with-freetype=/usr/include/ \
-         --with-jpeg=/usr/include/ \
-    && docker-php-ext-install \
-         pdo_mysql \
-         mbstring \
-         zip \
-         exif \
-         pcntl \
-         gd \
-         xml \
-    && apk del build-base \
-    && rm -rf /var/cache/apk/*
+FROM node:18-alpine as frontend
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN npm install -g pnpm
 
-WORKDIR /var/www
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN pnpm install
 
 COPY . .
 
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+RUN pnpm run build
+
+FROM php:8.3-fpm-alpine
+
+WORKDIR /var/www
+
+RUN apk add --no-cache \
+    libpng \
+    libjpeg-turbo \
+    freetype \
+    oniguruma \
+    libxml2 \
+    libzip \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl gd zip xml
+
+COPY --from=vendor /app/vendor /var/www/vendor
+COPY --from=frontend /app/public/build /var/www/public/build
+COPY . /var/www
+
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 EXPOSE 9000
+CMD ["php-fpm"]
