@@ -9,3 +9,5 @@ public/storage
 storage/framework/
 storage/logs/
 vendor/
+bootstrap/cache/*.php
+storage/logs/*.log
