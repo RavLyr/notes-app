@@ -43,4 +43,4 @@ COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
 RUN chmod +x /usr/local/bin/wait-for-it.sh
 
 EXPOSE 9000
-CMD ["wait-for-it.sh", "db:3306", "--", "php-fpm"]
+CMD sh -c "wait-for-it.sh ${DB_HOST:-localhost}:${DB_PORT:-3306} -- php artisan migrate --force && php-fpm"
