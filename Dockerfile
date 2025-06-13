@@ -34,6 +34,8 @@ COPY --from=frontend /app/public/build /app/public/build
 COPY . /app
 
 
+COPY .docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
 RUN php artisan config:cache && \
     php artisan route:cache 
 
