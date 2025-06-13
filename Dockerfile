@@ -1,45 +1,53 @@
-FROM composer:2.7 as vendor
-WORKDIR /app
-COPY database/ database/
-COPY composer.json composer.lock ./
-RUN composer install --no-scripts --no-dev --no-interaction --prefer-dist --optimize-autoloader
+FROM php:8.2-fpm-alpine
 
-FROM node:18-alpine as frontend
-RUN npm install -g pnpm
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install
-COPY . .
-RUN pnpm run build
+# Install OS deps
+RUN apk add --no-cache \
+    nginx \
+    bash \
+    curl \
+    supervisor \
+    libzip-dev \
+    oniguruma-dev \
+    zip \
+    unzip \
+    git \
+    icu-dev \
+    libxml2-dev \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip intl xml
 
-FROM php:8.3-fpm-alpine
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /app
+# Create user for Laravel
+RUN addgroup -g 1000 www && adduser -u 1000 -G www -s /bin/sh -D www
 
-RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && apk add --no-cache \
-         bash \
-        libpng-dev \
-        jpeg-dev \      
-        freetype-dev \
-        oniguruma-dev \ 
-        libxml2-dev \
-        libzip-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl gd zip xml \
-    && apk del .build-deps
+# Set working dir
+WORKDIR /var/www
 
-COPY --from=vendor /app/vendor /app/vendor
-COPY --from=frontend /app/public/build /app/public/build
-COPY . /app
+# Copy source
+COPY . /var/www
 
+# Copy nginx config
+COPY .docker/nginx.conf /etc/nginx/nginx.conf
 
-COPY .docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+# Set permissions
+RUN chown -R www:www /var/www
 
-RUN php artisan config:cache && \
-    php artisan route:cache 
+# Laravel optimization
+RUN composer install --no-dev --optimize-autoloader && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
 
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+# Supervisor config to run php-fpm & nginx together
+COPY .docker/supervisord.conf /etc/supervisord.conf
 
-EXPOSE 9000
-CMD ["php-fpm"]
+# Expose port 80
+EXPOSE 80
+
+USER www
+
+COPY .docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD ["/entrypoint.sh"]
+
