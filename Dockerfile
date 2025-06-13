@@ -34,13 +34,11 @@ COPY --from=frontend /app/public/build /app/public/build
 COPY . /app
 
 
-RUN php artisan config:cache && \
+RUN php artisan optimize && \
+    php artisan config:cache && \
     php artisan route:cache 
 
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 
-COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
-RUN chmod +x /usr/local/bin/wait-for-it.sh
-
 EXPOSE 9000
-CMD sh -c "wait-for-it.sh ${DB_HOST:-localhost}:${DB_PORT:-3306} -- php artisan migrate --force && php-fpm"
+CMD ["php-fpm"]
