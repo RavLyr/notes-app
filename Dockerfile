@@ -34,8 +34,7 @@ COPY --from=frontend /app/public/build /app/public/build
 COPY . /app
 
 
-RUN php artisan optimize && \
-    php artisan config:cache && \
+RUN php artisan config:cache && \
     php artisan route:cache 
 
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
