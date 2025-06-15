@@ -1,53 +1,39 @@
-FROM php:8.2-fpm-alpine
+# 1. Install PHP dependencies only
+FROM composer:2.7 AS composer-base
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
-# Install OS deps
-RUN apk add --no-cache \
-    nginx \
-    bash \
-    curl \
-    supervisor \
-    libzip-dev \
-    oniguruma-dev \
-    zip \
-    unzip \
-    git \
-    icu-dev \
-    libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip intl xml
+# 2. Build Frontend Assets
+FROM node:18-alpine AS frontend
+WORKDIR /app
+RUN npm install -g pnpm
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install
+COPY resources resources
+COPY vite.config.js tailwind.config.js postcss.config.js ./
+RUN pnpm run build
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# 3. Final Production Image
+FROM php:8.3-fpm-alpine
+WORKDIR /app
 
-# Create user for Laravel
-RUN addgroup -g 1000 www && adduser -u 1000 -G www -s /bin/sh -D www
+# Install PHP Extensions
+RUN apk add --no-cache bash libzip-dev oniguruma-dev libxml2-dev \
+    && docker-php-ext-install pdo_mysql mbstring zip xml
 
-# Set working dir
-WORKDIR /var/www
+# Copy application code
+COPY . .
 
-# Copy source
-COPY . /var/www
+# Copy vendor dan assets dari stage sebelumnya
+COPY --from=composer-base /app/vendor /app/vendor
+COPY --from=frontend /app/public/build /app/public/build
 
-# Copy nginx config
-COPY .docker/nginx.conf /etc/nginx/nginx.conf
+RUN php artisan config:cache && php artisan route:cache
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 
-# Set permissions
-RUN chown -R www:www /var/www
+COPY .docker/wait-for-it.sh /usr/local/bin/wait-for-it
+RUN chmod +x /usr/local/bin/wait-for-it
 
-# Laravel optimization
-RUN composer install --no-dev --optimize-autoloader && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
-
-# Supervisor config to run php-fpm & nginx together
-COPY .docker/supervisord.conf /etc/supervisord.conf
-
-# Expose port 80
-EXPOSE 80
-
-USER www
-
-COPY .docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-CMD ["/entrypoint.sh"]
-
+EXPOSE 9000
+CMD ["bash", "-c", "wait-for-it ${DB_HOST:-db}:${DB_PORT:-3306} -- php artisan migrate --force && php-fpm"]
