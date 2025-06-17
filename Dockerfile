@@ -28,9 +28,11 @@ RUN mkdir -p storage/framework/views \
     storage/framework/cache \
     storage/framework/sessions \
     bootstrap/cache \
- && chmod -R 777 storage bootstrap/cache
+    && chmod -R 777 storage bootstrap/cache
 
-RUN php artisan config:cache && php artisan route:cache
+RUN php artisan config:clear && php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
 
 COPY .docker/wait-for-it.sh /usr/local/bin/wait-for-it
 RUN chmod +x /usr/local/bin/wait-for-it
