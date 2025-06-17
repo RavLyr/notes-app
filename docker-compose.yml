@@ -13,8 +13,6 @@ services:
       DB_USERNAME: user
       DB_PASSWORD: password
     restart: unless-stopped
-    volumes:
-      - .:/app
     networks:
       - app-network
     depends_on:
@@ -24,6 +22,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
+      - vendor:/app/vendor
     command: sh -c "npm install && npm run dev"
     restart: unless-stopped
     ports:
@@ -32,7 +31,7 @@ services:
       - app-network
     depends_on:
       - app
-      
+
   nginx:
     image: nginx:alpine
     container_name: notesapp-nginx
@@ -67,3 +66,4 @@ networks:
 
 volumes:
   dbdata:
+  vendor:
