@@ -17,6 +17,8 @@ services:
       APP_URL: https://notes.ravly.me
       ASSET_URL: https://notes.ravly.me
       VITE_DEV_SERVER: 'false'
+    volumes:
+      - build-assets:/app/public/build
     restart: unless-stopped
     networks:
       - app-network
@@ -31,6 +33,7 @@ services:
     volumes:
       - ./.docker/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./public:/app/public
+      - build-assets:/app/public/build
     networks:
       - app-network
     depends_on:
@@ -56,3 +59,4 @@ networks:
 
 volumes:
   dbdata:
+  build-assets:
